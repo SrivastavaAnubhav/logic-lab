@@ -1,0 +1,24 @@
+body
+{
+	font: 300 14px 'Helvetica Neue', Helvetica;
+}
+
+
+/* Graph properties */
+svg
+{
+	border: 1px solid #ccc;
+	overflow: hidden;
+	margin: 0 auto;
+}
+
+.node rect {
+	stroke: #333;
+	fill: #fff;
+}
+
+.edgePath path {
+	stroke: #333;
+	fill: #333;
+	stroke-width: 1.5px;
+}

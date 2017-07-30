@@ -1,0 +1,34 @@
+<html>
+	<head>
+		<title>Logic Lab</title>
+		<script type="text/javascript" src="logic_lab.js"></script>
+		<script type="text/javascript" src="formula_tree.js"></script>
+		<script src="d3.v3.min.js" charset="utf-8"></script>
+		<script src="dagre-d3.js"></script>
+		<link rel="stylesheet" type="text/css" href="style.css"> 
+	</head>
+	<div id="body-wrapper">
+		<h1 id="title">Logic lab</h1>
+		<input type="text" id="boolexp"/>
+		<input type="submit" value="Parse" onclick="readExp()"/>
+		</br>
+			<p>
+				<b>Instructions:</b> Make a well-formed formula according to the following rules. Note that the program is case-sensitive (e.g. use <b>OR</b>, not <b>or</b>).
+				<li>A string whose name is not <b>AND</b>, <b>OR</b>, <b>NOT</b>, <b>IMP</b>, or <b>IFF</b> and which does not contain a <b>(</b> or a <b>)</b> is a well-formed formula.</li>
+				<li>If <b>A</b> is a well-formed formula then <b>(NOT A)</b> is a well-formed formula.</li>
+				<li>
+					If <b>A</b> is a well-formed formula and <b>B</b> is a well-formed formula then:
+					<ul>
+						<li><b>(A AND B)</b> is a well-formed formula.</li>
+						<li><b>(A OR B)</b> is a well-formed formula.</li>
+						<li><b>(A IMP B)</b> is a well-formed formula (if/implication).</li>
+						<li><b>(A IFF B)</b> is a well-formed formula (if and only if).</li>
+					</ul>
+				</li>
+			</p>
+		</br>
+		<svg width=960 height=600 id="formulaTree">
+			<g id="formulaTreeGraph"/>
+		</svg>		
+	</div>
+</html>
