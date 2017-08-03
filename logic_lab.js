@@ -1,5 +1,6 @@
 "use strict";
 
+
 class Node
 {
 	constructor(op, children)
@@ -8,6 +9,7 @@ class Node
 		this.children = children;
 	}
 }
+
 
 // The purpose of this class is to prevent me from accidentally
 // cloning the tokens array if I were to pass it instead. It also
@@ -39,6 +41,7 @@ class TokenStream
 		return this.tokens[this.index];
 	}
 }
+
 
 function parseBracketedExp(tokenStream)
 {
@@ -90,7 +93,9 @@ function parseBracketedExp(tokenStream)
 	}
 }
 
-// Do not call this function. It does not check that the stream is empty after parsing.
+
+// Call parseExp instead of this function. This function does not check that
+// the stream is empty after parsing.
 function parseExpHelper(tokenStream)
 {
 	if (tokenStream.peek() == '(')
@@ -100,13 +105,13 @@ function parseExpHelper(tokenStream)
 	else return tokenStream.readChar();
 }
 
-// Call this function.
+
 function parseExp(tokenStream)
 {
 	let formulaTree = parseExpHelper(tokenStream);
 	if (tokenStream.peek())
 	{
-		return new Error("You have extra tokens at the end of your input (or you forgot to enclose the whole input in brackets.");
+		throw "You have extra tokens at the end of your input (or you forgot to enclose the whole input in brackets).";
 	}
 	return formulaTree;
 }
@@ -144,6 +149,7 @@ function tokenize(boolexp)
 	return tokens;
 }
 
+
 function populateGraphContent(formulaTree, graphContent)
 {
 	if (!formulaTree.children)
@@ -178,27 +184,167 @@ function populateGraphContent(formulaTree, graphContent)
 	}
 }
 
+
+// op is the operation to be applied.
+// children is an array of boolean values of the subtrees (from left to right).
+// Right now it is only possible to have at most 2 children, but future
+// code might need to be able to handle an indeterminate amount
+// e.g. (A OR B OR C) has 3 children (not valid input at the moment)
+function interpretOP(op, children)
+{
+	if (op === "NOT")
+	{
+		if (children.length !== 1)
+		{
+			throw `Incorrect number of arguments to ${op}.`;
+		}
+		return !children[0];
+	}
+	else if (op === "AND")
+	{
+		if (children.length < 2)
+		{
+			throw `Incorrect number of arguments to ${op}.`;
+		}
+		return children.reduce((acc, val) => 
+		{
+			return (acc && val);
+		}, true);
+	}
+	else if (op === "OR")
+	{
+		if (children.length < 2)
+		{
+			throw `Incorrect number of arguments to ${op}.`;
+		}
+		return children.reduce((acc, val) => 
+		{
+			return (acc || val);
+		}, false);
+	}
+	else if (op === "IMP")
+	{
+		if (children.length !== 2)
+		{
+			throw `Incorrect number of arguments to ${op}.`;
+		}
+
+		if (children[0])
+		{
+			return children[1];
+		}
+		else
+		{
+			return true;
+		}
+	}
+	else if (op === "IFF")
+	{
+		if (children.length !== 2)
+		{
+			throw `Incorrect number of arguments to ${op}.`;
+		}
+
+		return children[0] === children[1];
+	}
+}
+
+// formulaTree is a tree whose leaves are labelled by literals and whose
+// internal nodes are operations.
+// truthValues is an object mapping variable names to their boolean truth values.
+function interpret(formulaTree, truthValues)
+{
+	if (!formulaTree.children) // leaf (i.e. literal)
+	{
+		return truthValues[formulaTree];
+	}
+	else
+	{
+		return interpretOP(formulaTree.op, formulaTree.children.map((child) =>
+		{
+			return interpret(child, truthValues);
+		}));
+	}
+}
+
+
 function readExp()
 {
-	const boolexp = document.getElementById('boolexp').value;
-	if (boolexp.length == 0)
+	try
 	{
-		alert("No boolean expression provided.");
-		return;
+		document.getElementById('error').innerHTML = "";
+		const boolexp = document.getElementById('boolexp').value;
+		if (boolexp.length == 0)
+		{
+			throw "No boolean expression provided.";
+		}
+
+		let tokens = tokenize(boolexp);
+		let ts = new TokenStream(tokens);
+		let formulaTree = parseExp(ts);
+
+		let graphContent = {};
+		graphContent.ids = {};
+		graphContent.edges = {};
+
+		// Might do some coloring of vertices with this later
+		graphContent.literals = new Set();
+
+		populateGraphContent(formulaTree, graphContent);
+
+		loadGraph(graphContent);
+	}
+	catch (err)
+	{
+		document.getElementById('error').innerHTML = err;
+	}
+}
+
+
+function testAll()
+{
+	let testInput = "(A AND (B OR (NOT C)))";
+	let expectedTokens = ["(", "A", "AND", "(", "B", "OR", "(", "NOT", "C", ")", ")", ")"];
+	let tokenizerOutput = tokenize(testInput);
+
+	if (JSON.stringify(tokenizerOutput) !== JSON.stringify(expectedTokens))
+	{
+		alert("Tokenizer test failed. See console.");
+		console.log(expectedTokens);
+		console.log(tokenizerOutput);
+		return false;
 	}
 
-	let tokens = tokenize(boolexp);
-	let ts = new TokenStream(tokens);
-	let formulaTree = parseExp(ts);
+	let notC = new Node("NOT", ["C"]);
+	let BorC = new Node("OR", ["B", notC]);
+	let AandBorC = new Node("AND", ["A", BorC]);
+	let ts = new TokenStream(tokenizerOutput);
+	let parserOutput = parseExp(ts);
 
-	let graphContent = {};
-	graphContent.ids = {};
-	graphContent.edges = {};
+	if (JSON.stringify(parserOutput) !== JSON.stringify(AandBorC))
+	{
+		alert("Parser test failed. See console.");
+		console.log(AandBorC);
+		console.log(parserOutput);
+		return false;
+	}
 
-	// Might do some coloring of vertices with this later
-	graphContent.literals = new Set();
+	let truthValues = {
+		"A": true,
+		"B": false,
+		"C": true
+	};
+	let interpreterOutput = interpret(parserOutput, truthValues);
 
-	populateGraphContent(formulaTree, graphContent);
+	if (interpreterOutput !== false)
+	{
+		alert("Interpreter test failed. See console.");
+		console.log(interpreterOutput);
+		return false;
+	}
 
-	loadGraph(graphContent);
+	console.log("Tests passed.");
+	return true;
 }
+
+testAll();

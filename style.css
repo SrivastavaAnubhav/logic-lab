@@ -3,6 +3,15 @@ body
 	font: 300 14px 'Helvetica Neue', Helvetica;
 }
 
+#content
+{
+	margin: auto;
+}
+
+#error
+{
+	color: red;
+}
 
 /* Graph properties */
 svg
