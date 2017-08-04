@@ -27,7 +27,7 @@ class TokenStream
 		if (this.index >= this.tokens.length)
 		{
 			console.log(this.tokens)
-			return new Error("Index out of bounds");
+			return Error("Index out of bounds.");
 		}
 		return this.tokens[this.index++];
 	}
@@ -42,52 +42,87 @@ class TokenStream
 	}
 }
 
+const operators = ["OR", "AND", "NOT", "IMP", "IFF"];
+
+
+function isLiteral(literal)
+{
+	return operators.concat(["(", ")", null]).indexOf(literal) === -1;
+}
+
 
 function parseBracketedExp(tokenStream)
 {
-	const operators = ["OR", "AND", "NOT", "IMP", "IFF"];
-
 	// Ignore the opening bracket
-	tokenStream.readChar();
-
-	let peekVal = tokenStream.peek();
-
-	if (peekVal == "NOT")
+	if (tokenStream.readChar() !== '(')
 	{
+		return Error("Expected an opening bracket.");
+	}
+
+	if (tokenStream.peek() == "NOT")
+	{
+		// Read the NOT
 		tokenStream.readChar();
 		if (tokenStream.peek() == "(")
 		{
 			let formula = parseBracketedExp(tokenStream);
 
+			if (formula instanceof Error)
+			{
+				return formula;
+			}
+
 			// Need to remember to burn the closing bracket
-			tokenStream.readChar();
+			if (tokenStream.readChar() !== ')')
+			{
+				return Error("Expected a closing bracket.");
+			}
 			return new Node("NOT", [formula]);
 		}
-		else
+		else if (isLiteral(tokenStream.peek()))
 		{
-			// A literal (hopefully)
 			let lit = tokenStream.readChar();
 
 			// Need to remember to burn the closing bracket
-			tokenStream.readChar();
+			if (tokenStream.readChar() !== ')')
+			{
+				return Error("Expected a closing bracket.");
+			}
 
 			return new Node("NOT", [lit]);
+		}
+		else
+		{
+			return Error(`Expected a literal or a formula, got ${tokenStream.peek()}.`);
 		}
 	}
 	else
 	{
 		let formula1 = parseExpHelper(tokenStream);
+
+		if (formula1 instanceof Error)
+		{
+			return formula1;
+		}
+
 		let op = tokenStream.readChar();
 
 		if (operators.indexOf(op) === -1)
 		{
-			return new Error(`${op} is not a valid operator.`);
+			return Error(`$'{op}' is not a valid operator.`);
 		}
 
 		let formula2 = parseExpHelper(tokenStream);
+		if (formula2 instanceof Error)
+		{
+			return formula2;
+		}
 
 		// Need to remember to burn the closing bracket
-		tokenStream.readChar();
+		if (tokenStream.readChar() !== ')')
+		{
+			return Error("Expected a closing bracket.");
+		}
 
 		return new Node(op, [formula1, formula2]);
 	}
@@ -109,10 +144,17 @@ function parseExpHelper(tokenStream)
 function parseExp(tokenStream)
 {
 	let formulaTree = parseExpHelper(tokenStream);
+
+	if (formulaTree instanceof Error)
+	{
+		return formulaTree;
+	}
+
 	if (tokenStream.peek())
 	{
-		throw "You have extra tokens at the end of your input (or you forgot to enclose the whole input in brackets).";
+		return Error("You have extra tokens at the end of your input (or you forgot to enclose the whole input in brackets).");
 	}
+
 	return formulaTree;
 }
 
@@ -192,11 +234,19 @@ function populateGraphContent(formulaTree, graphContent)
 // e.g. (A OR B OR C) has 3 children (not valid input at the moment)
 function interpretOP(op, children)
 {
+	if (children.some((child) =>
+	{
+		return (child instanceof Error);
+	}))
+	{
+		return Error("At least one child has an error.");
+	}
+
 	if (op === "NOT")
 	{
 		if (children.length !== 1)
 		{
-			throw `Incorrect number of arguments to ${op}.`;
+			return Error(`Incorrect number of arguments to ${op}. NOT takes exactly one argument.`);
 		}
 		return !children[0];
 	}
@@ -204,7 +254,7 @@ function interpretOP(op, children)
 	{
 		if (children.length < 2)
 		{
-			throw `Incorrect number of arguments to ${op}.`;
+			return Error(`Incorrect number of arguments to ${op}. AND takes at least two arguments.`);
 		}
 		return children.reduce((acc, val) => 
 		{
@@ -215,7 +265,7 @@ function interpretOP(op, children)
 	{
 		if (children.length < 2)
 		{
-			throw `Incorrect number of arguments to ${op}.`;
+			return Error(`Incorrect number of arguments to ${op}. OR takes at least two arguments.`);
 		}
 		return children.reduce((acc, val) => 
 		{
@@ -226,7 +276,7 @@ function interpretOP(op, children)
 	{
 		if (children.length !== 2)
 		{
-			throw `Incorrect number of arguments to ${op}.`;
+			return Error(`Incorrect number of arguments to ${op}. IMP takes exactly two arguments.`);
 		}
 
 		if (children[0])
@@ -242,7 +292,7 @@ function interpretOP(op, children)
 	{
 		if (children.length !== 2)
 		{
-			throw `Incorrect number of arguments to ${op}.`;
+			return Error(`Incorrect number of arguments to ${op}. IFF takes exactly two arguments.`);
 		}
 
 		return children[0] === children[1];
@@ -260,44 +310,47 @@ function interpret(formulaTree, truthValues)
 	}
 	else
 	{
-		return interpretOP(formulaTree.op, formulaTree.children.map((child) =>
+		let interpretChild = (child) =>
 		{
 			return interpret(child, truthValues);
-		}));
+		}
+
+		return interpretOP(formulaTree.op, formulaTree.children.map(interpretChild));
 	}
 }
 
 
 function readExp()
 {
-	try
+	let err = document.getElementById('error');
+	err.innerHTML = "";
+	const boolexp = document.getElementById('boolexp').value;
+	if (boolexp.length == 0)
 	{
-		document.getElementById('error').innerHTML = "";
-		const boolexp = document.getElementById('boolexp').value;
-		if (boolexp.length == 0)
-		{
-			throw "No boolean expression provided.";
-		}
-
-		let tokens = tokenize(boolexp);
-		let ts = new TokenStream(tokens);
-		let formulaTree = parseExp(ts);
-
-		let graphContent = {};
-		graphContent.ids = {};
-		graphContent.edges = {};
-
-		// Might do some coloring of vertices with this later
-		graphContent.literals = new Set();
-
-		populateGraphContent(formulaTree, graphContent);
-
-		loadGraph(graphContent);
+		err.innerHTML = "No boolean expression provided.";
+		return;
 	}
-	catch (err)
+
+	let tokens = tokenize(boolexp);
+	let ts = new TokenStream(tokens);
+	let formulaTree = parseExp(ts);
+
+	if (formulaTree instanceof Error)
 	{
-		document.getElementById('error').innerHTML = err;
+		err.innerHTML = formulaTree.message;
+		return;
 	}
+
+	let graphContent = {};
+	graphContent.ids = {};
+	graphContent.edges = {};
+
+	// Might do some coloring of vertices with this later
+	graphContent.literals = new Set();
+
+	populateGraphContent(formulaTree, graphContent);
+
+	loadGraph(graphContent);
 }
 
 
