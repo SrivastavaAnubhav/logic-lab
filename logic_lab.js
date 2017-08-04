@@ -93,7 +93,7 @@ function parseBracketedExp(tokenStream)
 		}
 		else
 		{
-			return Error(`Expected a literal or a formula, got ${tokenStream.peek()}.`);
+			return Error("Expected a literal or a formula, got " + tokenStream.peek().);
 		}
 	}
 	else
@@ -109,7 +109,7 @@ function parseBracketedExp(tokenStream)
 
 		if (operators.indexOf(op) === -1)
 		{
-			return Error(`$'{op}' is not a valid operator.`);
+			return Error(op + " is not a valid operator.");
 		}
 
 		let formula2 = parseExpHelper(tokenStream);
@@ -246,7 +246,7 @@ function interpretOP(op, children)
 	{
 		if (children.length !== 1)
 		{
-			return Error(`Incorrect number of arguments to ${op}. NOT takes exactly one argument.`);
+			return Error("Incorrect number of arguments to " + op + ". NOT takes exactly one argument.");
 		}
 		return !children[0];
 	}
@@ -254,7 +254,7 @@ function interpretOP(op, children)
 	{
 		if (children.length < 2)
 		{
-			return Error(`Incorrect number of arguments to ${op}. AND takes at least two arguments.`);
+			return Error("Incorrect number of arguments to " + op + ". AND takes at least two arguments.");
 		}
 		return children.reduce((acc, val) => 
 		{
@@ -265,7 +265,7 @@ function interpretOP(op, children)
 	{
 		if (children.length < 2)
 		{
-			return Error(`Incorrect number of arguments to ${op}. OR takes at least two arguments.`);
+			return Error("Incorrect number of arguments to " + op + ". OR takes at least two arguments.");
 		}
 		return children.reduce((acc, val) => 
 		{
@@ -276,7 +276,7 @@ function interpretOP(op, children)
 	{
 		if (children.length !== 2)
 		{
-			return Error(`Incorrect number of arguments to ${op}. IMP takes exactly two arguments.`);
+			return Error("Incorrect number of arguments to " + op + ". IMP takes exactly two arguments.");
 		}
 
 		if (children[0])
@@ -292,7 +292,7 @@ function interpretOP(op, children)
 	{
 		if (children.length !== 2)
 		{
-			return Error(`Incorrect number of arguments to ${op}. IFF takes exactly two arguments.`);
+			return Error("Incorrect number of arguments to " + op + ". IFF takes exactly two arguments.");
 		}
 
 		return children[0] === children[1];
