@@ -26,8 +26,7 @@ class TokenStream
 	{
 		if (this.index >= this.tokens.length)
 		{
-			console.log(this.tokens)
-			return Error("Index out of bounds.");
+			return Error("Input ends with blank spaces or nothing.");
 		}
 		return this.tokens[this.index++];
 	}
@@ -93,7 +92,7 @@ function parseBracketedExp(tokenStream)
 		}
 		else
 		{
-			return Error("Expected a literal or a formula, got " + tokenStream.peek().);
+			return Error("Expected a literal or a formula, got " + tokenStream.peek() + ".");
 		}
 	}
 	else
@@ -106,6 +105,10 @@ function parseBracketedExp(tokenStream)
 		}
 
 		let op = tokenStream.readChar();
+		if (op instanceof Error)
+		{
+			return op;
+		}
 
 		if (operators.indexOf(op) === -1)
 		{
@@ -137,7 +140,21 @@ function parseExpHelper(tokenStream)
 	{
 		return parseBracketedExp(tokenStream);
 	}
-	else return tokenStream.readChar();
+	else
+	{
+		let literal = tokenStream.readChar();
+		if (literal instanceof Error)
+		{
+			return literal;
+		}
+
+		if (!isLiteral(literal))
+		{
+			return Error("Expected a literal, got '" + literal + "'.");
+		}
+
+		return literal;
+	}
 }
 
 
@@ -323,7 +340,7 @@ function interpret(formulaTree, truthValues)
 function readExp()
 {
 	let err = document.getElementById('error');
-	err.innerHTML = "";
+	err.innerHTML = "\n";
 	const boolexp = document.getElementById('boolexp').value;
 	if (boolexp.length == 0)
 	{
@@ -338,6 +355,18 @@ function readExp()
 	if (formulaTree instanceof Error)
 	{
 		err.innerHTML = formulaTree.message;
+	}
+
+	return formulaTree;
+}
+
+
+function displayGraph()
+{
+	let formulaTree = readExp();
+	if (formulaTree instanceof Error)
+	{
+		// Already logged the error in readExp()
 		return;
 	}
 

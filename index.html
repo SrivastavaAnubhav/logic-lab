@@ -9,9 +9,15 @@
 <div id="body-wrapper">
 	<div id="content">
 		<h1 id="title">Logic lab</h1>
-		<input type="text" id="boolexp"/>
-		<input type="submit" value="Parse" onclick="readExp()"/>
-		<div id="error"></div>
+		<input type="text" id="boolexp" oninput="readExp()" />
+		<input type="submit" value="Go!" onclick="displayGraph()" />
+		<div id="error"> </div>
+		<form>
+			<input type="radio" name="displayType" value="formulaTree" id="displayType1" checked>
+			<label for="displayType1">Formula Tree</label>
+			<input type="radio" name="displayType" value="binaryDecisionDiagram" id="displayType2">
+			<label for="displayType2">Binary Decision Diagram (BDD)</label>
+		</form>
 		</br>
 			<p>
 				<b>Instructions:</b> Make a well-formed formula according to the following rules. Note that the program is <b>case-sensitive</b> (e.g. use OR, not or).
