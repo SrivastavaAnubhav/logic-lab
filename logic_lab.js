@@ -340,7 +340,7 @@ function interpret(formulaTree, truthValues)
 function readExp()
 {
 	let err = document.getElementById('error');
-	err.innerHTML = "\n";
+	err.innerHTML = "&nbsp";
 	const boolexp = document.getElementById('boolexp').value;
 	if (boolexp.length == 0)
 	{
