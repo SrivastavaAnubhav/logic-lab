@@ -49,9 +49,9 @@ class InterpStream
 	constructor(formulaTree, literals)
 	{
 		this.formulaTree = formulaTree;
-	    this.literals = literals;
-	    this.index = 0;
-	    this.max = Math.pow(2, literals.length)
+		this.literals = literals;
+		this.index = 0;
+		this.max = Math.pow(2, literals.length);
 	}
 
 	next()
@@ -333,11 +333,30 @@ function interpret(formulaTree, truthValues)
 }
 
 
+// Populates the graphContent object for display by Dagre-D3
+// tree is the formulaTree or BDD
+// graphContent should have an empty object at the ids, edges, and colors keys
+// leavesMap maps a leaf value to its id (can be ignored if isBDD is false)
 function populateGraphContent(tree, graphContent, isBDD, leavesMap)
 {
 	if (!tree.children.length)
 	{
-		graphContent.ids[Object.keys(graphContent.ids).length] = tree.val;
+		let leafID = Object.keys(graphContent.ids).length;
+		graphContent.ids[leafID] = tree.val;
+
+		if (isBDD)
+		{
+			leavesMap[tree.val] = leafID;
+
+			if (tree.val === true)
+			{
+				graphContent.colors[leafID] = "#afa";
+			}
+			else if (tree.val === false)
+			{
+				graphContent.colors[leafID] = "#faa";
+			}
+		}
 	}
 	else
 	{
@@ -345,28 +364,9 @@ function populateGraphContent(tree, graphContent, isBDD, leavesMap)
 
 		for (const child of tree.children)
 		{
-			if (isBDD && !child.children.length)
+			if (isBDD && !child.children.length && child.val in leavesMap)
 			{
-				if (child.val in leavesMap)
-				{
-					childIDs.push(leavesMap[child.val]);
-				}
-				else
-				{
-					let leafID = Object.keys(graphContent.ids).length;
-					childIDs.push(leafID);
-					leavesMap[child.val] = leafID;
-					graphContent.ids[leafID] = child.val;
-
-					if (child.val === true)
-					{
-						graphContent.colors[leafID] = "#afa";
-					}
-					else if (child.val === false)
-					{
-						graphContent.colors[leafID] = "#faa";
-					}
-				}
+				childIDs.push(leavesMap[child.val]);
 			}
 			else
 			{
@@ -417,6 +417,7 @@ function displayBDD(bdd)
 }
 
 
+// Creates a BDD from a formula tree
 function makeBDDHelper(interpstream, depth, literals, trueNode, falseNode)
 {
 	if (depth < literals.length)
@@ -442,6 +443,7 @@ function makeBDDHelper(interpstream, depth, literals, trueNode, falseNode)
 }
 
 
+// Creates a BDD from a formula tree
 // literals is an ARRAY of literals
 function makeBDD(formulaTree, literals)
 {
@@ -482,8 +484,99 @@ function readExp()
 }
 
 
+// childrenToID maps a children IDs array to the id of a node
+// (except for true/false, where it maps true/false to the id)
+function reduceBDD(bdd, childrenToID, idToVal)
+{
+	if (!bdd.children.length)
+	{
+		if (bdd.val in childrenToID)
+		{
+			return childrenToID[bdd.val];
+		}
+		else
+		{
+			let id = Object.keys(childrenToID).length;
+			childrenToID[bdd.val] = id;
+			idToVal[id] = bdd.val;
+			return id;
+		}
+	}
+	else
+	{
+		let leftID = reduceBDD(bdd.children[0], childrenToID, idToVal);
+		let rightID = reduceBDD(bdd.children[1], childrenToID, idToVal);
+
+		if (leftID === rightID)
+		{
+			return leftID;
+		}
+		else
+		{
+			if ([leftID, rightID] in childrenToID)
+			{
+				return childrenToID[[leftID, rightID]];
+			}
+			else
+			{
+				let id = Object.keys(childrenToID).length;
+				childrenToID[[leftID, rightID]] = id;
+				idToVal[id] = bdd.val;
+				return id;
+			}
+		}
+	}
+}
+
+
+// The "child" in idToChildren might be true/false instead of an array because
+// we get idToChildren from reversing a map from earlier in which it was
+// impossible to use [] -> true and [] -> false (because you can only map to
+// one value for each key)
+function bddFromIDs(idToChildren, idToVal, rootID)
+{
+	let childIDs = idToChildren[parseInt(rootID)];
+	if (!Array.isArray(childIDs))
+	{
+		// childIDs is true or false
+		return new Node(childIDs, []);
+	}
+	else
+	{
+		let children = childIDs.map(function (childID)
+		{
+			return bddFromIDs(idToChildren, idToVal, parseInt(childID));
+		});
+		return new Node(idToVal[rootID], children);
+	}
+}
+
+
 function displayGraph()
 {
+	function reverse(obj)
+	{
+		let newObj = {};
+
+		for (const key of Object.keys(obj))
+		{
+			if ([obj[key]] == true)
+			{
+				newObj[obj[key]] = true;
+			}
+			else if ([obj[key]] == false)
+			{
+				newObj[obj[key]] = false;
+			}
+			else
+			{
+				newObj[obj[key]] = key.split(',');
+			}
+		}
+
+		return newObj;
+	}
+
 	let err = document.getElementById("error");
 
 	let readObject = readExp();
@@ -504,7 +597,10 @@ function displayGraph()
 	else if (document.getElementById("displayBDD").checked)
 	{
 		let bdd = makeBDD(formulaTree, Array.from(literals));
-		displayBDD(bdd);
+		let childrenToID = {}, idToVal = {};
+		let rootID = reduceBDD(bdd, childrenToID, idToVal);
+		let reducedBDD = bddFromIDs(reverse(childrenToID), idToVal, rootID);
+		displayBDD(reducedBDD);
 	}
 	else
 	{
