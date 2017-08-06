@@ -3,9 +3,9 @@
 
 class Node
 {
-	constructor(op, children)
+	constructor(val, children)
 	{
-		this.op = op;
+		this.val = val;
 		this.children = children;
 	}
 }
@@ -18,8 +18,8 @@ class TokenStream
 {
 	constructor(tokens)
 	{
-	    this.tokens = tokens;
-	    this.index = 0;
+		this.tokens = tokens;
+		this.index = 0;
 	}
 
 	readChar()
@@ -40,6 +40,35 @@ class TokenStream
 		return this.tokens[this.index];
 	}
 }
+
+
+// This class generates the next truth value for a given interpretation
+class InterpStream
+{
+	// Literals is an array of strings
+	constructor(formulaTree, literals)
+	{
+		this.formulaTree = formulaTree;
+	    this.literals = literals;
+	    this.index = 0;
+	    this.max = Math.pow(2, literals.length)
+	}
+
+	next()
+	{
+		if (this.index < this.max)
+		{
+			let truthValues = {};
+			for (let i = 0; i < this.literals.length; ++i)
+			{
+				truthValues[this.literals[this.literals.length - i - 1]] = ((this.index >> i) & 1);
+			}
+			++this.index;
+			return interpret(this.formulaTree, truthValues);
+		}
+	}
+}
+
 
 const operators = ["OR", "AND", "NOT", "IMP", "IFF"];
 
@@ -88,7 +117,8 @@ function parseBracketedExp(tokenStream)
 				return Error("Expected a closing bracket.");
 			}
 
-			return new Node("NOT", [lit]);
+			let litNode = new Node(lit, []);
+			return new Node("NOT", [litNode]);
 		}
 		else
 		{
@@ -153,7 +183,7 @@ function parseExpHelper(tokenStream)
 			return Error("Expected a literal, got '" + literal + "'.");
 		}
 
-		return literal;
+		return new Node(literal, []);
 	}
 }
 
@@ -206,41 +236,6 @@ function tokenize(boolexp)
 		}
 	}
 	return tokens;
-}
-
-
-function populateGraphContent(formulaTree, graphContent)
-{
-	if (!formulaTree.children)
-	{
-		graphContent.ids[Object.keys(graphContent.ids).length] = formulaTree;
-		graphContent.literals.add(formulaTree);
-	}
-	else
-	{
-		let childIDs = []
-
-		for (const child of formulaTree.children)
-		{
-			populateGraphContent(child, graphContent);
-			childIDs.push(Object.keys(graphContent.ids).length - 1);
-		}
-
-		let myID = Object.keys(graphContent.ids).length;
-		graphContent.ids[myID] = formulaTree.op;
-
-		for (const childID of childIDs)
-		{
-			if (!graphContent.edges[myID])
-			{
-				graphContent.edges[myID] = [childID];
-			}
-			else
-			{
-				graphContent.edges[myID].push(childID);
-			}
-		}
-	}
 }
 
 
@@ -316,14 +311,15 @@ function interpretOP(op, children)
 	}
 }
 
+
 // formulaTree is a tree whose leaves are labelled by literals and whose
 // internal nodes are operations.
 // truthValues is an object mapping variable names to their boolean truth values.
 function interpret(formulaTree, truthValues)
 {
-	if (!formulaTree.children) // leaf (i.e. literal)
+	if (!formulaTree.children.length) // leaf (i.e. literal)
 	{
-		return truthValues[formulaTree];
+		return truthValues[formulaTree.val];
 	}
 	else
 	{
@@ -332,20 +328,141 @@ function interpret(formulaTree, truthValues)
 			return interpret(child, truthValues);
 		}
 
-		return interpretOP(formulaTree.op, formulaTree.children.map(interpretChild));
+		return interpretOP(formulaTree.val, formulaTree.children.map(interpretChild));
 	}
 }
 
 
+function populateGraphContent(tree, graphContent, isBDD, leavesMap)
+{
+	if (!tree.children.length)
+	{
+		graphContent.ids[Object.keys(graphContent.ids).length] = tree.val;
+	}
+	else
+	{
+		let childIDs = [];
+
+		for (const child of tree.children)
+		{
+			if (isBDD && !child.children.length)
+			{
+				if (child.val in leavesMap)
+				{
+					childIDs.push(leavesMap[child.val]);
+				}
+				else
+				{
+					let leafID = Object.keys(graphContent.ids).length;
+					childIDs.push(leafID);
+					leavesMap[child.val] = leafID;
+					graphContent.ids[leafID] = child.val;
+
+					if (child.val === true)
+					{
+						graphContent.colors[leafID] = "#afa";
+					}
+					else if (child.val === false)
+					{
+						graphContent.colors[leafID] = "#faa";
+					}
+				}
+			}
+			else
+			{
+				populateGraphContent(child, graphContent, isBDD, leavesMap);
+				childIDs.push(Object.keys(graphContent.ids).length - 1);
+			}
+		}
+
+		let myID = Object.keys(graphContent.ids).length;
+		graphContent.ids[myID] = tree.val;
+
+		for (const childID of childIDs)
+		{
+			if (!graphContent.edges[myID])
+			{
+				graphContent.edges[myID] = [childID];
+			}
+			else
+			{
+				graphContent.edges[myID].push(childID);
+			}
+		}
+	}
+}
+
+
+function displayFormulaTree(formulaTree, literals)
+{
+	let graphContent = {};
+	graphContent.ids = {};
+	graphContent.edges = {};
+	graphContent.colors = {};
+
+	populateGraphContent(formulaTree, graphContent, false, null);
+	loadGraph(graphContent, "formula tree");
+}
+
+
+function displayBDD(bdd)
+{
+	let graphContent = {};
+	graphContent.ids = {};
+	graphContent.edges = {};
+	graphContent.colors = {};
+
+	populateGraphContent(bdd, graphContent, true, {});
+	loadGraph(graphContent, "BDD");
+}
+
+
+function makeBDDHelper(interpstream, depth, literals, trueNode, falseNode)
+{
+	if (depth < literals.length)
+	{
+		let ifFalse = makeBDDHelper(interpstream, depth + 1, literals, trueNode, falseNode);
+		let ifTrue = makeBDDHelper(interpstream, depth + 1, literals, trueNode, falseNode);
+
+		return new Node(literals[depth], [ifFalse, ifTrue]);
+	}
+	else
+	{
+		// If the interpretation is true, return the shared true node, else
+		// return the shared false node
+		if (interpstream.next())
+		{
+			return trueNode;
+		}
+		else
+		{
+			return falseNode;
+		}
+	}
+}
+
+
+// literals is an ARRAY of literals
+function makeBDD(formulaTree, literals)
+{
+	let interpstream = new InterpStream(formulaTree, literals);
+	let trueNode = new Node(true, []);
+	let falseNode = new Node(false, []);
+	return makeBDDHelper(interpstream, 0, literals, trueNode, falseNode);
+}
+
+
+// This function reads the boolean expression in the input box and parses it into a
+// formula tree. It returns the tree and a set of the literals.
 function readExp()
 {
-	let err = document.getElementById('error');
+	let err = document.getElementById("error");
 	err.innerHTML = "&nbsp";
-	const boolexp = document.getElementById('boolexp').value;
+	const boolexp = document.getElementById("boolexp").value;
 	if (boolexp.length == 0)
 	{
 		err.innerHTML = "No boolean expression provided.";
-		return;
+		return Error("No boolean expression provided.");
 	}
 
 	let tokens = tokenize(boolexp);
@@ -357,29 +474,43 @@ function readExp()
 		err.innerHTML = formulaTree.message;
 	}
 
-	return formulaTree;
+	let literals = new Set(tokens.filter(isLiteral));
+	return {
+		formulaTree: formulaTree,
+		literals: literals
+	};
 }
 
 
 function displayGraph()
 {
-	let formulaTree = readExp();
-	if (formulaTree instanceof Error)
+	let err = document.getElementById("error");
+
+	let readObject = readExp();
+
+	if (readObject instanceof Error)
 	{
 		// Already logged the error in readExp()
 		return;
 	}
 
-	let graphContent = {};
-	graphContent.ids = {};
-	graphContent.edges = {};
+	let formulaTree = readObject.formulaTree;
+	let literals = readObject.literals;
 
-	// Might do some coloring of vertices with this later
-	graphContent.literals = new Set();
+	if (document.getElementById("displayFormulaTree").checked)
+	{
+		displayFormulaTree(formulaTree, literals);
+	}
+	else if (document.getElementById("displayBDD").checked)
+	{
+		let bdd = makeBDD(formulaTree, Array.from(literals));
+		displayBDD(bdd);
+	}
+	else
+	{
+		err.innerHTML = "Nothing selected";
+	}
 
-	populateGraphContent(formulaTree, graphContent);
-
-	loadGraph(graphContent);
 }
 
 
@@ -392,21 +523,29 @@ function testAll()
 	if (JSON.stringify(tokenizerOutput) !== JSON.stringify(expectedTokens))
 	{
 		alert("Tokenizer test failed. See console.");
+		console.log("Expected: ");
 		console.log(expectedTokens);
+		console.log("Actual: ");
 		console.log(tokenizerOutput);
 		return false;
 	}
 
-	let notC = new Node("NOT", ["C"]);
-	let BorC = new Node("OR", ["B", notC]);
-	let AandBorC = new Node("AND", ["A", BorC]);
+	let A = new Node("A", []);
+	let B = new Node("B", []);
+	let C = new Node("C", []);
+	let notC = new Node("NOT", [C]);
+	let BornotC = new Node("OR", [B, notC]);
+	let AandBornotC = new Node("AND", [A, BornotC]);
+
 	let ts = new TokenStream(tokenizerOutput);
 	let parserOutput = parseExp(ts);
 
-	if (JSON.stringify(parserOutput) !== JSON.stringify(AandBorC))
+	if (JSON.stringify(parserOutput) !== JSON.stringify(AandBornotC))
 	{
 		alert("Parser test failed. See console.");
-		console.log(AandBorC);
+		console.log("Expected: ");
+		console.log(AandBornotC);
+		console.log("Actual: ");
 		console.log(parserOutput);
 		return false;
 	}
@@ -421,6 +560,8 @@ function testAll()
 	if (interpreterOutput !== false)
 	{
 		alert("Interpreter test failed. See console.");
+		console.log("Expected: false");
+		console.log("Actual: ");
 		console.log(interpreterOutput);
 		return false;
 	}

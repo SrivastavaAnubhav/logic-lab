@@ -1,18 +1,39 @@
-function loadGraph(content)
+function loadGraph(content, type)
 {
 	// Create a new directed graph
 	var g = new dagreD3.graphlib.Graph().setGraph({});
 
 	for (const id of Object.keys(content.ids))
 	{
-		g.setNode(id, {label: content.ids[id]});
+		let options = {label: content.ids[id]};
+		if (content.colors[id])
+		{
+			options.style = "fill: " + content.colors[id];
+		}
+		g.setNode(id, options);
 	}
 
 	for (const from of Object.keys(content.edges))
 	{
-		for (const to of content.edges[from])
+		if (type === "formula tree")
 		{
-			g.setEdge(from, to, {label: ""});
+			for (const to of content.edges[from])
+			{
+				g.setEdge(from, to, {label: ""});
+			}
+		}
+		else if (type === "BDD")
+		{
+			if (content.edges[from][0] === content.edges[from][1])
+			{
+				g.setEdge(from, content.edges[from][0], {label: "F/T"});
+			}
+			else
+			{
+				// TODO: make the false branch dashed (without shading the polygon)
+				g.setEdge(from, content.edges[from][0], {label: "F"});
+				g.setEdge(from, content.edges[from][1], {label: "T"});
+			}
 		}
 	}
 
