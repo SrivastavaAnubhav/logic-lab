@@ -8,10 +8,10 @@
 
 <div id="body-wrapper">
 	<div id="content">
-		<h1 id="title">Logic lab</h1>
-		<input type="text" id="boolexp" oninput="readExp()" />
-		<input type="submit" value="Go!" onclick="displayGraph()" />
-		<div id="error">
+		<h1 id="title" class="scaling">Logic lab</h1>
+		<input type="text" id="boolexp" oninput="readExp()"  class="scaling"/>
+		<input type="submit" value="Go!" onclick="displayGraph()"  class="scaling"/>
+		<div id="error" class="scaling">
 			&nbsp
 		</div>
 		<form>
@@ -36,8 +36,10 @@
 				</li>
 			</p>
 		</br>
-		<svg width=960 height=600 id="formulaTree">
+		<svg class="scaling" width=960 height=600 id="formulaTree">
 			<g id="formulaTreeGraph"/>
 		</svg>
+		</br>
+		</br>
 	</div>
 </div>

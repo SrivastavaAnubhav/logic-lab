@@ -3,15 +3,39 @@ body
 	font: 300 14px 'Helvetica Neue', Helvetica;
 }
 
+#body-wrapper
+{
+	height: 100%;
+	width: 100%;
+}
+
 #content
 {
 	margin: auto;
+	max-width: 80%;
+	max-height: 80%;
 }
+
+
+.scaling
+{
+	max-width: 100%;
+	max-height: 100%;
+}
+
+
+form
+{
+	display: flex;
+}
+
 
 #error
 {
 	color: red;
 }
+
+
 
 /* Graph properties */
 svg
@@ -19,6 +43,8 @@ svg
 	border: 1px solid #ccc;
 	overflow: hidden;
 	margin: 0 auto;
+	max-width: 100%;
+	max-height: 10%;
 }
 
 .node rect {
